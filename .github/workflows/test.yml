@@ -41,6 +41,13 @@ jobs:
         echo "# Test Results Summary" > test-summary.md
         echo "" >> test-summary.md
         
+        # Initialize counters for unit tests
+        unit_tests=0
+        unit_passed=0
+        unit_failed=0
+        unit_errors=0
+        unit_skipped=0
+        
         # Parse surefire reports
         if [ -d "target/surefire-reports" ] && ls target/surefire-reports/TEST-*.xml 1> /dev/null 2>&1; then
           echo "## Unit Tests (Surefire)" >> test-summary.md
@@ -56,9 +63,36 @@ jobs:
               echo "### $name" >> test-summary.md
               echo "- **Tests:** $tests | **Passed:** $passed | **Failed:** $failures | **Errors:** $errors | **Skipped:** $skipped" >> test-summary.md
               echo "" >> test-summary.md
+              
+              # Accumulate unit test totals
+              unit_tests=$((unit_tests + tests))
+              unit_failed=$((unit_failed + failures))
+              unit_errors=$((unit_errors + errors))
+              unit_skipped=$((unit_skipped + skipped))
             fi
           done
+          
+          unit_passed=$((unit_tests - unit_failed - unit_errors - unit_skipped))
+          
+          # Add unit tests summary
+          echo "### Unit Tests Summary" >> test-summary.md
+          echo "" >> test-summary.md
+          echo "| Metric | Count |" >> test-summary.md
+          echo "|--------|-------|" >> test-summary.md
+          echo "| **Total Tests** | $unit_tests |" >> test-summary.md
+          echo "| **Passed** | $unit_passed |" >> test-summary.md
+          echo "| **Failed** | $unit_failed |" >> test-summary.md
+          echo "| **Errors** | $unit_errors |" >> test-summary.md
+          echo "| **Skipped** | $unit_skipped |" >> test-summary.md
+          echo "" >> test-summary.md
         fi
+        
+        # Initialize counters for integration tests
+        integration_tests=0
+        integration_passed=0
+        integration_failed=0
+        integration_errors=0
+        integration_skipped=0
         
         # Parse failsafe reports
         if [ -d "target/failsafe-reports" ] && ls target/failsafe-reports/TEST-*.xml 1> /dev/null 2>&1; then
@@ -75,32 +109,38 @@ jobs:
               echo "### $name" >> test-summary.md
               echo "- **Tests:** $tests | **Passed:** $passed | **Failed:** $failures | **Errors:** $errors | **Skipped:** $skipped" >> test-summary.md
               echo "" >> test-summary.md
+              
+              # Accumulate integration test totals
+              integration_tests=$((integration_tests + tests))
+              integration_failed=$((integration_failed + failures))
+              integration_errors=$((integration_errors + errors))
+              integration_skipped=$((integration_skipped + skipped))
             fi
           done
+          
+          integration_passed=$((integration_tests - integration_failed - integration_errors - integration_skipped))
+          
+          # Add integration tests summary
+          echo "### Integration Tests Summary" >> test-summary.md
+          echo "" >> test-summary.md
+          echo "| Metric | Count |" >> test-summary.md
+          echo "|--------|-------|" >> test-summary.md
+          echo "| **Total Tests** | $integration_tests |" >> test-summary.md
+          echo "| **Passed** | $integration_passed |" >> test-summary.md
+          echo "| **Failed** | $integration_failed |" >> test-summary.md
+          echo "| **Errors** | $integration_errors |" >> test-summary.md
+          echo "| **Skipped** | $integration_skipped |" >> test-summary.md
+          echo "" >> test-summary.md
         fi
         
-        # Calculate totals
-        total_tests=0
-        total_passed=0
-        total_failed=0
-        total_errors=0
-        total_skipped=0
+        # Calculate overall totals
+        total_tests=$((unit_tests + integration_tests))
+        total_passed=$((unit_passed + integration_passed))
+        total_failed=$((unit_failed + integration_failed))
+        total_errors=$((unit_errors + integration_errors))
+        total_skipped=$((unit_skipped + integration_skipped))
         
-        for xml in target/surefire-reports/TEST-*.xml target/failsafe-reports/TEST-*.xml 2>/dev/null; do
-          if [ -f "$xml" ]; then
-            tests=$(extract_attr "$xml" "tests" "0")
-            failures=$(extract_attr "$xml" "failures" "0")
-            errors=$(extract_attr "$xml" "errors" "0")
-            skipped=$(extract_attr "$xml" "skipped" "0")
-            total_tests=$((total_tests + tests))
-            total_failed=$((total_failed + failures))
-            total_errors=$((total_errors + errors))
-            total_skipped=$((total_skipped + skipped))
-          fi
-        done
-        
-        total_passed=$((total_tests - total_failed - total_errors - total_skipped))
-        
+        # Add overall summary
         echo "## Overall Summary" >> test-summary.md
         echo "" >> test-summary.md
         echo "| Metric | Count |" >> test-summary.md
@@ -111,16 +151,23 @@ jobs:
         echo "| **Errors** | $total_errors |" >> test-summary.md
         echo "| **Skipped** | $total_skipped |" >> test-summary.md
         echo "" >> test-summary.md
+        echo "**Breakdown:**" >> test-summary.md
+        echo "- Unit Tests: $unit_tests tests ($unit_passed passed, $unit_failed failed, $unit_errors errors, $unit_skipped skipped)" >> test-summary.md
+        echo "- Integration Tests: $integration_tests tests ($integration_passed passed, $integration_failed failed, $integration_errors errors, $integration_skipped skipped)" >> test-summary.md
+        echo "" >> test-summary.md
         
         # Display summary in console
         echo "=========================================="
         echo "Test Results Summary"
         echo "=========================================="
-        echo "Total Tests: $total_tests"
-        echo "Passed: $total_passed"
-        echo "Failed: $total_failed"
-        echo "Errors: $total_errors"
-        echo "Skipped: $total_skipped"
+        echo "Unit Tests:"
+        echo "  Total: $unit_tests | Passed: $unit_passed | Failed: $unit_failed | Errors: $unit_errors | Skipped: $unit_skipped"
+        echo ""
+        echo "Integration Tests:"
+        echo "  Total: $integration_tests | Passed: $integration_passed | Failed: $integration_failed | Errors: $integration_errors | Skipped: $integration_skipped"
+        echo ""
+        echo "Overall:"
+        echo "  Total: $total_tests | Passed: $total_passed | Failed: $total_failed | Errors: $total_errors | Skipped: $total_skipped"
         echo "=========================================="
         cat test-summary.md
 
