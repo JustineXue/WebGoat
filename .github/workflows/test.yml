@@ -1,0 +1,37 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - '**'  # Trigger on any branch push
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK
+      uses: ./.github/actions/java-setup
+      with:
+        cache: 'maven'
+
+    - name: Run all tests with Maven
+      run: mvn --no-transfer-progress verify
+      continue-on-error: false
+
+    - name: Upload test reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-reports
+        path: |
+          target/surefire-reports/**
+          target/failsafe-reports/**
+        if-no-files-found: ignore
+        retention-days: 30
