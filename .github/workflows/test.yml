@@ -25,6 +25,115 @@ jobs:
       run: mvn --no-transfer-progress verify
       continue-on-error: false
 
+    - name: Generate consolidated test report
+      if: always()
+      run: |
+        # Function to extract XML attribute value with default
+        extract_attr() {
+          local file=$1
+          local attr=$2
+          local default=${3:-0}
+          local value=$(grep -o "${attr}=\"[0-9]*\"" "$file" 2>/dev/null | grep -o '[0-9]*' | head -1)
+          echo "${value:-$default}"
+        }
+        
+        # Create a summary of all test results
+        echo "# Test Results Summary" > test-summary.md
+        echo "" >> test-summary.md
+        
+        # Parse surefire reports
+        if [ -d "target/surefire-reports" ] && ls target/surefire-reports/TEST-*.xml 1> /dev/null 2>&1; then
+          echo "## Unit Tests (Surefire)" >> test-summary.md
+          echo "" >> test-summary.md
+          for xml in target/surefire-reports/TEST-*.xml; do
+            if [ -f "$xml" ]; then
+              tests=$(extract_attr "$xml" "tests" "0")
+              failures=$(extract_attr "$xml" "failures" "0")
+              errors=$(extract_attr "$xml" "errors" "0")
+              skipped=$(extract_attr "$xml" "skipped" "0")
+              name=$(basename "$xml" .xml | sed 's/TEST-//')
+              passed=$((tests - failures - errors - skipped))
+              echo "### $name" >> test-summary.md
+              echo "- **Tests:** $tests | **Passed:** $passed | **Failed:** $failures | **Errors:** $errors | **Skipped:** $skipped" >> test-summary.md
+              echo "" >> test-summary.md
+            fi
+          done
+        fi
+        
+        # Parse failsafe reports
+        if [ -d "target/failsafe-reports" ] && ls target/failsafe-reports/TEST-*.xml 1> /dev/null 2>&1; then
+          echo "## Integration Tests (Failsafe)" >> test-summary.md
+          echo "" >> test-summary.md
+          for xml in target/failsafe-reports/TEST-*.xml; do
+            if [ -f "$xml" ]; then
+              tests=$(extract_attr "$xml" "tests" "0")
+              failures=$(extract_attr "$xml" "failures" "0")
+              errors=$(extract_attr "$xml" "errors" "0")
+              skipped=$(extract_attr "$xml" "skipped" "0")
+              name=$(basename "$xml" .xml | sed 's/TEST-//')
+              passed=$((tests - failures - errors - skipped))
+              echo "### $name" >> test-summary.md
+              echo "- **Tests:** $tests | **Passed:** $passed | **Failed:** $failures | **Errors:** $errors | **Skipped:** $skipped" >> test-summary.md
+              echo "" >> test-summary.md
+            fi
+          done
+        fi
+        
+        # Calculate totals
+        total_tests=0
+        total_passed=0
+        total_failed=0
+        total_errors=0
+        total_skipped=0
+        
+        for xml in target/surefire-reports/TEST-*.xml target/failsafe-reports/TEST-*.xml 2>/dev/null; do
+          if [ -f "$xml" ]; then
+            tests=$(extract_attr "$xml" "tests" "0")
+            failures=$(extract_attr "$xml" "failures" "0")
+            errors=$(extract_attr "$xml" "errors" "0")
+            skipped=$(extract_attr "$xml" "skipped" "0")
+            total_tests=$((total_tests + tests))
+            total_failed=$((total_failed + failures))
+            total_errors=$((total_errors + errors))
+            total_skipped=$((total_skipped + skipped))
+          fi
+        done
+        
+        total_passed=$((total_tests - total_failed - total_errors - total_skipped))
+        
+        echo "## Overall Summary" >> test-summary.md
+        echo "" >> test-summary.md
+        echo "| Metric | Count |" >> test-summary.md
+        echo "|--------|-------|" >> test-summary.md
+        echo "| **Total Tests** | $total_tests |" >> test-summary.md
+        echo "| **Passed** | $total_passed |" >> test-summary.md
+        echo "| **Failed** | $total_failed |" >> test-summary.md
+        echo "| **Errors** | $total_errors |" >> test-summary.md
+        echo "| **Skipped** | $total_skipped |" >> test-summary.md
+        echo "" >> test-summary.md
+        
+        # Display summary in console
+        echo "=========================================="
+        echo "Test Results Summary"
+        echo "=========================================="
+        echo "Total Tests: $total_tests"
+        echo "Passed: $total_passed"
+        echo "Failed: $total_failed"
+        echo "Errors: $total_errors"
+        echo "Skipped: $total_skipped"
+        echo "=========================================="
+        cat test-summary.md
+
+    - name: Publish Test Results
+      if: always()
+      uses: mikepenz/action-junit-report@v4
+      with:
+        report_paths: |
+          **/target/surefire-reports/TEST-*.xml
+          **/target/failsafe-reports/TEST-*.xml
+        check_name: Test Results
+        fail_on_failure: false
+
     - name: Upload test reports
       if: always()
       uses: actions/upload-artifact@v4
@@ -33,5 +142,6 @@ jobs:
         path: |
           target/surefire-reports/**
           target/failsafe-reports/**
+          test-summary.md
         if-no-files-found: ignore
         retention-days: 30
