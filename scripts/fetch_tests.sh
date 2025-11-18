@@ -4,7 +4,8 @@ set -e
 # Directory to store artifacts
 ARTIFACT_DIR="../artifacts"
 
-rm "$ARTIFACT_DIR/test-summary.md"
+# rm "$ARTIFACT_DIR/test-summary.md"
+rm -r "$ARTIFACT_DIR/target"
 
 echo "📥 Fetching latest test-reports artifact from GitHub Actions..."
 
