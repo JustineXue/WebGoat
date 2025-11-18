@@ -1,0 +1,130 @@
+diff --git a/src/main/java/org/owasp/webgoat/lessons/challenges/challenge5/Assignment5.java b/src/main/java/org/owasp/webgoat/lessons/challenges/challenge5/Assignment5.java
+index 41e3eff2..a4f8b3c4 100644
+--- a/src/main/java/org/owasp/webgoat/lessons/challenges/challenge5/Assignment5.java
++++ b/src/main/java/org/owasp/webgoat/lessons/challenges/challenge5/Assignment5.java
+@@ -42,12 +42,11 @@ public class Assignment5 implements AssignmentEndpoint {
+     try (var connection = dataSource.getConnection()) {
+       PreparedStatement statement =
+           connection.prepareStatement(
+-              "select password from challenge_users where userid = '"
+-                  + username_login
+-                  + "' and password = '"
+-                  + password_login
+-                  + "'");
++              "select password from challenge_users where userid = ? and password = ?");
++      statement.setString(1, username_login);
++      statement.setString(2, password_login);
+       ResultSet resultSet = statement.executeQuery();
+ 
+       if (resultSet.next()) {
+ 
+diff --git a/src/main/java/org/owasp/webgoat/lessons/sqlinjection/advanced/SqlInjectionChallenge.java b/src/main/java/org/owasp/webgoat/lessons/sqlinjection/advanced/SqlInjectionChallenge.java
+index 1234567..abcdefg 100644
+--- a/src/main/java/org/owasp/webgoat/lessons/sqlinjection/advanced/SqlInjectionChallenge.java
++++ b/src/main/java/org/owasp/webgoat/lessons/sqlinjection/advanced/SqlInjectionChallenge.java
+@@ -54,9 +54,9 @@ public class SqlInjectionChallenge implements AssignmentEndpoint {
+       try (Connection connection = dataSource.getConnection()) {
+         String checkUserQuery =
+             "select userid from sql_challenge_users where userid = ?";
+-        Statement statement = connection.createStatement();
+-        ResultSet resultSet = statement.executeQuery(checkUserQuery);
++        PreparedStatement statement = connection.prepareStatement(checkUserQuery);
++        statement.setString(1, username);
++        ResultSet resultSet = statement.executeQuery();
+ 
+         if (resultSet.next()) {
+ 
+diff --git a/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson5a.java b/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson5a.java
+index 7890123..4567890 100644
+--- a/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson5a.java
++++ b/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson5a.java
+@@ -47,11 +47,11 @@ public class SqlInjectionLesson5a implements AssignmentEndpoint {
+     String query = "";
+     try (Connection connection = dataSource.getConnection()) {
+       query =
+-          "SELECT * FROM user_data WHERE first_name = 'John' and last_name = '" + accountName + "'";
+-      try (Statement statement =
+-          connection.createStatement(
+-              ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)) {
+-        ResultSet results = statement.executeQuery(query);
++          "SELECT * FROM user_data WHERE first_name = 'John' and last_name = ?";
++      try (PreparedStatement statement =
++          connection.prepareStatement(
++              query, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)) {
++        statement.setString(1, accountName);
++        ResultSet results = statement.executeQuery();
+ 
+         if ((results != null) && (results.first())) {
+ 
+diff --git a/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson5b.java b/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson5b.java
+index 3456789..9876543 100644
+--- a/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson5b.java
++++ b/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson5b.java
+@@ -45,11 +45,11 @@ public class SqlInjectionLesson5b implements AssignmentEndpoint {
+   protected AttackResult injectableQuery(String login_count, String accountName) {
+-    String queryString = "SELECT * From user_data WHERE Login_Count = ? and userid= " + accountName;
++    String queryString = "SELECT * From user_data WHERE Login_Count = ? and userid= ?";
+     try (Connection connection = dataSource.getConnection()) {
+       PreparedStatement query =
+           connection.prepareStatement(
+               queryString, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+ 
+       int count = 0;
+@@ -64,7 +64,7 @@ public class SqlInjectionLesson5b implements AssignmentEndpoint {
+       }
+ 
+       query.setInt(1, count);
+-      // String query = "SELECT * FROM user_data WHERE Login_Count = " + login_count + " and userid
++      query.setString(2, accountName);
+ 
+diff --git a/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson8.java b/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson8.java
+index 5678901..1234567 100644
+--- a/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson8.java
++++ b/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson8.java
+@@ -49,17 +49,17 @@ public class SqlInjectionLesson8 implements AssignmentEndpoint {
+   protected AttackResult injectableQueryConfidentiality(String name, String auth_tan) {
+     StringBuilder output = new StringBuilder();
+     String query =
+-        "SELECT * FROM employees WHERE last_name = '"
+-            + name
+-            + "' AND auth_tan = '"
+-            + auth_tan
+-            + "'";
++        "SELECT * FROM employees WHERE last_name = ? AND auth_tan = ?";
+ 
+     try (Connection connection = dataSource.getConnection()) {
+       try {
+-        Statement statement =
+-            connection.createStatement(
+-                ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE);
++        PreparedStatement statement =
++            connection.prepareStatement(
++                query, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE);
++        statement.setString(1, name);
++        statement.setString(2, auth_tan);
+         log(connection, query);
+-        ResultSet results = statement.executeQuery(query);
++        ResultSet results = statement.executeQuery();
+ 
+         if (results.getStatement() != null) {
+ 
+diff --git a/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson9.java b/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson9.java
+index 2345678..8765432 100644
+--- a/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson9.java
++++ b/src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson9.java
+@@ -50,17 +50,17 @@ public class SqlInjectionLesson9 implements AssignmentEndpoint {
+   protected AttackResult injectableQueryIntegrity(String name, String auth_tan) {
+     StringBuilder output = new StringBuilder();
+     String queryInjection =
+-        "SELECT * FROM employees WHERE last_name = '"
+-            + name
+-            + "' AND auth_tan = '"
+-            + auth_tan
+-            + "'";
++        "SELECT * FROM employees WHERE last_name = ? AND auth_tan = ?";
+     try (Connection connection = dataSource.getConnection()) {
+       // V2019_09_26_7__employees.sql
+       int oldMaxSalary = this.getMaxSalary(connection);
+       int oldSumSalariesOfOtherEmployees = this.getSumSalariesOfOtherEmployees(connection);
+       // begin transaction
+
